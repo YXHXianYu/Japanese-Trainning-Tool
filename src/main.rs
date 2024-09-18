@@ -56,7 +56,7 @@ fn setup(
 ) {
     // window
     let mut window = windows.single_mut();
-    window.resolution.set(400.0, 300.0);
+    window.resolution.set(800.0, 500.0);
 
     // camera
     commands.spawn(Camera2dBundle::default());
@@ -65,7 +65,7 @@ fn setup(
     let font = asset_server.load("NotoSansJP-Regular.ttf");
     let text_style = TextStyle {
         font: font.clone(),
-        font_size: 100.0,
+        font_size: 175.0,
         ..Default::default()
     };
     let text_justification = JustifyText::Center;
@@ -91,21 +91,32 @@ fn update(
     // MARK: - Choose the library
     // ========================================
     // ========================================
-    let lib_chosen = LIB_5;
+    // let lib_chosen = LIB_50;
+    let lib_chosen = [
+        ("あ", "a"), ("い", "i"),
+         ("う", "u"), ("え", "e"), ("お", "o"),
+        ("か", "ka"), ("き", "ki"), ("く", "ku"), ("け", "ke"), ("こ", "ko"),
+        ("さ", "sa"), ("し", "shi"), ("す", "su"), ("せ", "se"), ("そ", "so"),
+        ("た", "ta"), ("ち", "chi"), ("つ", "tsu"), ("て", "te"), ("と", "to"),
+        ("な", "na"), ("に", "ni"), ("ぬ", "nu"), ("ね", "ne"), ("の", "no"),
+        ("は", "ha"), ("ひ", "hi"), ("ふ", "fu"), ("へ", "he"), ("ほ", "ho"),
+        ("ま", "ma"), ("み", "mi"), ("む", "mu"), ("め", "me"), ("も", "mo"),
+        ("や", "ya"), ("ゆ", "yu"), ("よ", "yo"),
+        ("ら", "ra"), ("り", "ri"), ("る", "ru"), ("れ", "re"), ("ろ", "ro"),
+        ("わ", "wa"), ("を", "wo"), ("ん", "n"),
+    ];
     // ========================================
     // ========================================
 
     let mut y = x.iter_mut().next().unwrap();
 
-    let char = if y.1.0 == -1 {
+    if y.1.0 == -1 {
         let v = rand::random::<usize>() % lib_chosen.len();
         y.1.0 = v as i32;
-        lib_chosen[v as usize].0
+        y.0.sections[0].value = lib_chosen[v as usize].0.to_string();
     } else {
         let v = y.1.0;
         y.1.0 = -1;
-        lib_chosen[v as usize].1
-    };
-
-    y.0.sections[0].value = char.to_string();
+        y.0.sections[0].value = format!("{} {}", lib_chosen[v as usize].0, lib_chosen[v as usize].1);
+    }
 }
