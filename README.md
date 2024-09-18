@@ -12,3 +12,5 @@
   * 安装Rust
   * 在终端输入`cargo run`
   * 搞定！
+* 技术栈
+  * 基于Rust + Bevy游戏引擎
