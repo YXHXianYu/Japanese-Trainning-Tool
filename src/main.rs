@@ -1,21 +1,19 @@
 use bevy::prelude::*;
 use clap::Parser;
-use once_cell::sync::Lazy;
 
 mod lib_parser;
-mod static_lib;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Resource)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[arg(default_value = "lib/gojuon.toml")]
     path: String,
 }
 
-static ARGS: Lazy<Args> = Lazy::new(|| Args::parse());
-
 fn main() {
+    let args = Args::parse();
     App::new()
+        .insert_resource(args)
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, update)
@@ -24,14 +22,14 @@ fn main() {
 
 #[derive(Component, Debug)]
 struct Data { // count & lib
-    current_word_index: i32, // -1: not chosen, >=0: index of the library
-    words_lib: Vec<(String, String)>,
+    current_word_index: i32, // -1 表示未选中，>=0 表示词库索引
+    words_lib: Vec<(String, String, String)>, // (词, 读音, 释义)
 }
 
 impl Data {
     fn new(
         current_word_index: i32,
-        words_lib: Vec<(String, String)>,
+        words_lib: Vec<(String, String, String)>,
     ) -> Self {
         Data {
             current_word_index,
@@ -44,6 +42,7 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut windows: Query<&mut Window>,
+    args: Res<Args>,
 ) {
     // window
     let mut window = windows.single_mut();
@@ -59,12 +58,11 @@ fn setup(
         font_size: 175.0,
         ..Default::default()
     };
-    let text_justification = JustifyText::Center;
 
-    let word_lib = match lib_parser::load_library_from_csv(&ARGS.path) {
+    let word_lib = match lib_parser::load_library_from_toml(&args.path) {
         Ok(lib) => lib,
         Err(e) => {
-            eprintln!("\n读取词库文件时发生错误，请检查词库 \"{}\" 是否存在！\n读取错误信息：{}\n", ARGS.path, e);
+            eprintln!("\n读取词库文件时发生错误，请检查词库 \"{}\" 是否存在！\n读取错误信息：{}\n", &args.path, e);
             std::process::exit(1);
         }
     };
@@ -76,8 +74,8 @@ fn setup(
 
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("Press Space", text_style.clone())
-                .with_justify(text_justification),
+            text: Text::from_section("Press Space", text_style)
+                .with_justify(JustifyText::Center),
             ..Default::default()
         },
         data,
@@ -86,23 +84,30 @@ fn setup(
 
 fn update(
     kb: Res<ButtonInput<KeyCode>>,
-    mut x: Query<(&mut Text, &mut Data)>,
+    mut query: Query<(&mut Text, &mut Data)>,
 ) {
-    if kb.just_pressed(KeyCode::Space) != true {
+    if !kb.just_pressed(KeyCode::Space) {
         return;
     }
     
-    let mut y = x.iter_mut().next().unwrap();
+    // let mut y = query.iter_mut().next().unwrap();
+    // let (text, data) = (&mut y.0, &mut y.1);
+    let (mut text, mut data) = query.single_mut();
 
-    let (text, data) = (&mut y.0, &mut y.1);
+    text.sections[0].value = if data.current_word_index == -1 {
+        let idx = rand::random::<usize>() % data.words_lib.len();
+        data.current_word_index = idx as i32;
 
-    if data.current_word_index == -1 {
-        let v = rand::random::<usize>() % data.words_lib.len();
-        data.current_word_index = v as i32;
-        text.sections[0].value = data.words_lib[v as usize].0.to_string();
+        let word = &data.words_lib[idx as usize];
+
+        format!("{}\n{}\n{}", word.0, " ", word.2)
     } else {
-        let v = data.current_word_index;
+        let idx = data.current_word_index;
         data.current_word_index = -1;
-        text.sections[0].value = format!("{} {}", data.words_lib[v as usize].0, data.words_lib[v as usize].1);
-    }
+        
+        let word = &data.words_lib[idx as usize];
+
+        format!("{}\n{}\n{}", word.0, word.1, word.2)
+    };
+
 }
