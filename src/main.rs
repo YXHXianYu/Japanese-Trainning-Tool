@@ -1,42 +1,18 @@
 use bevy::prelude::*;
+use clap::Parser;
+use once_cell::sync::Lazy;
 
-#[allow(dead_code)]
-const LIB_5: [(&str, &str); 5] = [
-    ("あ", "a"), ("い", "i"), ("う", "u"), ("え", "e"), ("お", "o")
-];
+mod lib_parser;
+mod static_lib;
 
-#[allow(dead_code)]
-const LIB_50: [(&str, &str); 46] = [
-    ("あ", "a"), ("い", "i"), ("う", "u"), ("え", "e"), ("お", "o"),
-    ("か", "ka"), ("き", "ki"), ("く", "ku"), ("け", "ke"), ("こ", "ko"),
-    ("さ", "sa"), ("し", "shi"), ("す", "su"), ("せ", "se"), ("そ", "so"),
-    ("た", "ta"), ("ち", "chi"), ("つ", "tsu"), ("て", "te"), ("と", "to"),
-    ("な", "na"), ("に", "ni"), ("ぬ", "nu"), ("ね", "ne"), ("の", "no"),
-    ("は", "ha"), ("ひ", "hi"), ("ふ", "fu"), ("へ", "he"), ("ほ", "ho"),
-    ("ま", "ma"), ("み", "mi"), ("む", "mu"), ("め", "me"), ("も", "mo"),
-    ("や", "ya"), ("ゆ", "yu"), ("よ", "yo"),
-    ("ら", "ra"), ("り", "ri"), ("る", "ru"), ("れ", "re"), ("ろ", "ro"),
-    ("わ", "wa"), ("を", "wo"), ("ん", "n"),
-];
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(default_value = "lib/gojuon.toml")]
+    path: String,
+}
 
-#[allow(dead_code)]
-const LIB_71: [(&str, &str); 71] = [
-    ("あ", "a"), ("い", "i"), ("う", "u"), ("え", "e"), ("お", "o"),
-    ("か", "ka"), ("き", "ki"), ("く", "ku"), ("け", "ke"), ("こ", "ko"),
-    ("さ", "sa"), ("し", "shi"), ("す", "su"), ("せ", "se"), ("そ", "so"),
-    ("た", "ta"), ("ち", "chi"), ("つ", "tsu"), ("て", "te"), ("と", "to"),
-    ("な", "na"), ("に", "ni"), ("ぬ", "nu"), ("ね", "ne"), ("の", "no"),
-    ("は", "ha"), ("ひ", "hi"), ("ふ", "fu"), ("へ", "he"), ("ほ", "ho"),
-    ("ま", "ma"), ("み", "mi"), ("む", "mu"), ("め", "me"), ("も", "mo"),
-    ("や", "ya"), ("ゆ", "yu"), ("よ", "yo"),
-    ("ら", "ra"), ("り", "ri"), ("る", "ru"), ("れ", "re"), ("ろ", "ro"),
-    ("わ", "wa"), ("を", "wo"), ("ん", "n"),
-    ("が", "ga"), ("ぎ", "gi"), ("ぐ", "gu"), ("げ", "ge"), ("ご", "go"),
-    ("ざ", "za"), ("じ", "ji"), ("ず", "zu"), ("ぜ", "ze"), ("ぞ", "zo"),
-    ("だ", "da"), ("ぢ", "ji"), ("づ", "zu"), ("で", "de"), ("ど", "do"),
-    ("ば", "ba"), ("び", "bi"), ("ぶ", "bu"), ("べ", "be"), ("ぼ", "bo"),
-    ("ぱ", "pa"), ("ぴ", "pi"), ("ぷ", "pu"), ("ぺ", "pe"), ("ぽ", "po"),
-];
+static ARGS: Lazy<Args> = Lazy::new(|| Args::parse());
 
 fn main() {
     App::new()
@@ -47,7 +23,22 @@ fn main() {
 }
 
 #[derive(Component, Debug)]
-struct Data(i32);
+struct Data { // count & lib
+    current_word_index: i32, // -1: not chosen, >=0: index of the library
+    words_lib: Vec<(String, String)>,
+}
+
+impl Data {
+    fn new(
+        current_word_index: i32,
+        words_lib: Vec<(String, String)>,
+    ) -> Self {
+        Data {
+            current_word_index,
+            words_lib,
+        }
+    }
+}
 
 fn setup(
     mut commands: Commands,
@@ -70,13 +61,26 @@ fn setup(
     };
     let text_justification = JustifyText::Center;
 
+    let word_lib = match lib_parser::load_library_from_csv(&ARGS.path) {
+        Ok(lib) => lib,
+        Err(e) => {
+            eprintln!("\n读取词库文件时发生错误，请检查词库 \"{}\" 是否存在！\n读取错误信息：{}\n", ARGS.path, e);
+            std::process::exit(1);
+        }
+    };
+
+    let data = Data::new(
+        -1,
+        word_lib
+    );
+
     commands.spawn((
         Text2dBundle {
             text: Text::from_section("Press Space", text_style.clone())
                 .with_justify(text_justification),
             ..Default::default()
         },
-        Data(-1),
+        data,
     ));
 }
 
@@ -87,36 +91,18 @@ fn update(
     if kb.just_pressed(KeyCode::Space) != true {
         return;
     }
-
-    // MARK: - Choose the library
-    // ========================================
-    // ========================================
-    // let lib_chosen = LIB_50;
-    let lib_chosen = [
-        ("あ", "a"), ("い", "i"),
-         ("う", "u"), ("え", "e"), ("お", "o"),
-        ("か", "ka"), ("き", "ki"), ("く", "ku"), ("け", "ke"), ("こ", "ko"),
-        ("さ", "sa"), ("し", "shi"), ("す", "su"), ("せ", "se"), ("そ", "so"),
-        ("た", "ta"), ("ち", "chi"), ("つ", "tsu"), ("て", "te"), ("と", "to"),
-        ("な", "na"), ("に", "ni"), ("ぬ", "nu"), ("ね", "ne"), ("の", "no"),
-        ("は", "ha"), ("ひ", "hi"), ("ふ", "fu"), ("へ", "he"), ("ほ", "ho"),
-        ("ま", "ma"), ("み", "mi"), ("む", "mu"), ("め", "me"), ("も", "mo"),
-        ("や", "ya"), ("ゆ", "yu"), ("よ", "yo"),
-        ("ら", "ra"), ("り", "ri"), ("る", "ru"), ("れ", "re"), ("ろ", "ro"),
-        ("わ", "wa"), ("を", "wo"), ("ん", "n"),
-    ];
-    // ========================================
-    // ========================================
-
+    
     let mut y = x.iter_mut().next().unwrap();
 
-    if y.1.0 == -1 {
-        let v = rand::random::<usize>() % lib_chosen.len();
-        y.1.0 = v as i32;
-        y.0.sections[0].value = lib_chosen[v as usize].0.to_string();
+    let (text, data) = (&mut y.0, &mut y.1);
+
+    if data.current_word_index == -1 {
+        let v = rand::random::<usize>() % data.words_lib.len();
+        data.current_word_index = v as i32;
+        text.sections[0].value = data.words_lib[v as usize].0.to_string();
     } else {
-        let v = y.1.0;
-        y.1.0 = -1;
-        y.0.sections[0].value = format!("{} {}", lib_chosen[v as usize].0, lib_chosen[v as usize].1);
+        let v = data.current_word_index;
+        data.current_word_index = -1;
+        text.sections[0].value = format!("{} {}", data.words_lib[v as usize].0, data.words_lib[v as usize].1);
     }
 }
